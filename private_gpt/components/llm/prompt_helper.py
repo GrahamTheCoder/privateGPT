@@ -123,7 +123,6 @@ class Llama2PromptStyle(AbstractPromptStyleWithSystemPrompt):
         system_message_str = f"{B_SYS} {system_message_str.strip()} {E_SYS}"
 
         for i in range(0, len(messages), 1):
-            # first message should always be a user
             message = messages[i]
             str_message = ""
             if message.role == MessageRole.USER:
