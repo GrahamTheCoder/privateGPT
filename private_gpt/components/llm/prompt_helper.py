@@ -1,14 +1,19 @@
 import abc
 import logging
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, Literal, List, Optional, Sequence
 
 from llama_index.llms import ChatMessage, MessageRole
 from llama_index.llms.llama_utils import (
     DEFAULT_SYSTEM_PROMPT,
     completion_to_prompt,
-    messages_to_prompt,
 )
+
+
+BOS, EOS = "<s>", "</s>"
+B_INST, E_INST = "[INST]", "[/INST]"
+B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +104,47 @@ class Llama2PromptStyle(AbstractPromptStyleWithSystemPrompt):
         super().__init__(default_system_prompt=default_system_prompt)
 
     def _messages_to_prompt(self, messages: Sequence[ChatMessage]) -> str:
-        return messages_to_prompt(messages, self.default_system_prompt)
+        return self.messages_to_prompt(messages, self.default_system_prompt)
 
     def _completion_to_prompt(self, completion: str) -> str:
         return completion_to_prompt(completion, self.default_system_prompt)
+    
+    def messages_to_prompt(self, 
+        messages: Sequence[ChatMessage], system_prompt: Optional[str] = None
+    ) -> str:
+        string_messages: List[str] = []
+        if messages[0].role == MessageRole.SYSTEM:
+            # pull out the system message (if it exists in messages)
+            system_message_str = messages[0].content or ""
+            messages = messages[1:]
+        else:
+            system_message_str = system_prompt or DEFAULT_SYSTEM_PROMPT
+
+        system_message_str = f"{B_SYS} {system_message_str.strip()} {E_SYS}"
+
+        for i in range(0, len(messages), 1):
+            message = messages[i]
+            str_message = ""
+            if message.role == MessageRole.USER or message.role == MessageRole.SYSTEM:
+                if i == 0:
+                    # make sure system prompt is included at the start
+                    str_message = f"{BOS} {B_INST} {system_message_str} "
+                else:
+                    # end previous user-assistant interaction
+                    string_messages[-1] += f" {EOS}"
+                    # no need to include system prompt
+                    str_message = f"{BOS} {B_INST} "
+
+                # include user message content
+                str_message += f"{message.content} {E_INST}"
+
+            elif message.role == MessageRole.ASSISTANT:
+                # if assistant message exists, add to str_message
+                str_message += f" {message.content}"
+
+            string_messages.append(str_message)
+
+        return "".join(string_messages)
 
 
 class TagPromptStyle(AbstractPromptStyleWithSystemPrompt):
