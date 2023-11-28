@@ -125,7 +125,7 @@ class Llama2PromptStyle(AbstractPromptStyleWithSystemPrompt):
         for i in range(0, len(messages), 1):
             message = messages[i]
             str_message = ""
-            if message.role == MessageRole.USER:
+            if message.role == MessageRole.USER or message.role == MessageRole.SYSTEM:
                 if i == 0:
                     # make sure system prompt is included at the start
                     str_message = f"{BOS} {B_INST} {system_message_str} "
